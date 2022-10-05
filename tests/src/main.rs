@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   client.signin("root", "root").await.expect("Signin error");
   client
-    .use_namespace("modspot", "modspot")
+    .use_namespace("my_namespace", "my_namespace")
     .await
     .expect("Namespace error");
 

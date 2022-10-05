@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .expect("RPC handshake error");
 
   client.signin("root", "root").await.expect("Signin error");
-  client.use_namespace("modspot", "modspot").await.expect("Namespace error");
+  client.use_namespace("my_namespace", "my_namespace").await.expect("Namespace error");
 
   client.send_query("create User set username = $username".to_owned(), json!({ "username": "John" }),)
     .await
