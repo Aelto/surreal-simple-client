@@ -53,17 +53,17 @@ impl Display for RpcChannelError {
 #[cfg(feature = "actix")]
 impl actix_web::ResponseError for RpcChannelError {
   fn error_response(&self) -> actix_web::HttpResponse<actix_web::body::BoxBody> {
-    HttpResponse::build(self.status_code())
-      .insert_header(ContentType::html())
+    actix_web::HttpResponse::build(self.status_code())
+      .insert_header(actix_web::http::header::ContentType::html())
       .body(match self {
-        RpcChannelError::SurrealBodyParsingError { inner } => {
-          println!("Failed to parse results from the database: {inner}");
+        RpcChannelError::SurrealBodyParsingError { inner: _ } => {
           "Failed to parse results from the database"
         }
         RpcChannelError::SocketError { inner: _ } => "RPC socket failure",
         RpcChannelError::SurrealQueryError { inner: _ } => {
           "Incorrect query was sent to the database"
         }
+        RpcChannelError::OneshotError { inner: _ } => "SPSC channel failure",
       })
   }
 }
