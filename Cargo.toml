@@ -1,0 +1,32 @@
+[package]
+name = "surreal-simple-client"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "An async Rust client for SurrealDB's RPC endpoint"
+readme = "README.md"
+keywords = ["surrealdb", "client", "rpc", "websocket"]
+categories = ["database"]
+repository = "https://github.com/Aelto/surreal-simple-client"
+
+[dependencies]
+
+# used for the socket connection
+tokio = { version = "1.21.2", features = ["full"] }
+tokio-tungstenite = "0.17.2"
+tokio-stream = "0.1.10"
+futures = "0.3"
+
+# json parsing
+serde_json = "1.0"
+serde = { version = "1.0.144", features = ["derive"] }
+
+# fast & small uuid
+nanoid = "0.4.0"
+
+# for automatic conversions to actix responses on RPC errors
+actix-web = { version = "4", optional = true }
+
+
+[features]
+actix = ["dep:actix-web"]
