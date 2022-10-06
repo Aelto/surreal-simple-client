@@ -49,19 +49,16 @@ impl User {
   }
 
   pub async fn find_by_name(client: &mut SurrealClient, name: &str) -> RpcResult<Option<Self>> {
-    let result: Option<Self> = client
+    client
       .find_one(
         QueryBuilder::new()
-          .select(user)
+          .select("*")
+          .from(user)
           .filter(user.name.equals_parameterized())
           .build(),
         json!({ "name": name }),
       )
-      .await?;
-
-    println!("It never reaches this");
-
-    Ok(result)
+      .await
   }
 }
 

@@ -62,8 +62,6 @@ async fn it_fetches_data() -> RpcResult<()> {
 
   it_creates_data(&mut client).await?;
 
-  println!("data created");
-
   let fetch_result = User::find_by_name(&mut client, USER0_NAME).await;
 
   assert!(
@@ -71,10 +69,10 @@ async fn it_fetches_data() -> RpcResult<()> {
     "Failed to fetch the user from the database"
   );
 
-  let some_user = fetch_result?;
-  let expected_result: Option<User> = Some(User::new(USER0_NAME.to_owned()));
+  let some_user_name = fetch_result?.map(|user| user.name);
+  let expected_result = Some(USER0_NAME.to_owned());
 
-  assert_eq!(expected_result, some_user);
+  assert_eq!(expected_result, some_user_name);
 
   Ok(())
 }
