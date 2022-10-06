@@ -27,6 +27,9 @@ nanoid = "0.4.0"
 # for automatic conversions to actix responses on RPC errors
 actix-web = { version = "4", optional = true }
 
-
 [features]
 actix = ["dep:actix-web"]
+
+[dev-dependencies]
+surreal-simple-querybuilder = "0.2.1"
+serde = { version = "1.0.144", features = ["derive"] }

@@ -47,7 +47,7 @@ pub struct SurrealClient {
 }
 
 impl SurrealClient {
-  pub async fn new(url: &str) -> tokio_tungstenite::tungstenite::Result<Self> {
+  pub async fn new(url: &str) -> RpcResult<Self> {
     let (socket, _) = tokio_tungstenite::connect_async(url).await?;
     let (socket_sink, mut socket_stream) = socket.split();
     let (resp_sink, resp_stream) = tokio::sync::mpsc::unbounded_channel();
