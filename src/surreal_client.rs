@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use futures::stream::SplitSink;
+use futures::Future;
+use futures::FutureExt;
 use futures::SinkExt;
 use futures::StreamExt;
 use serde::de::DeserializeOwned;
@@ -15,9 +17,29 @@ use tokio_tungstenite::WebSocketStream;
 
 use crate::rpc::RpcResult;
 use crate::SurrealMessage;
-use crate::SurrealResponse;
+use crate::SurrealResponseData;
 
-type SurrealResponseSender = oneshot::Sender<SurrealResponse>;
+type SurrealResponseSender = oneshot::Sender<SurrealResponseData>;
+
+#[derive(Debug)]
+pub struct SurrealResponse {
+  receiver: oneshot::Receiver<SurrealResponseData>,
+}
+impl Future for SurrealResponse {
+  type Output = <oneshot::Receiver<SurrealResponseData> as Future>::Output;
+
+  fn poll(
+    self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>,
+  ) -> std::task::Poll<Self::Output> {
+    // SAFETY
+    // As long as nothing ever hands out an `&(mut) Receiver` this is safe.
+    unsafe {
+      self
+        .map_unchecked_mut(|response| &mut response.receiver)
+        .poll(cx)
+    }
+  }
+}
 
 pub struct SurrealClient {
   socket_sink: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
@@ -36,21 +58,21 @@ impl SurrealClient {
 
       loop {
         tokio::select! {
-          receiver = recv_stream.next() => {
-            if let Some((id, sender)) = receiver {
-              requests.insert(id, sender);
-            }
-          },
+            receiver = recv_stream.next() => {
+              if let Some((id, sender)) = receiver {
+                  requests.insert(id, sender);
+              }
+            },
 
-          res = socket_stream.next() => {
-            if let Some(Ok(Message::Text(json_message))) = res {
-              if let Ok(response) = serde_json::from_str::<SurrealResponse>(&json_message) {
-                if let Some(sender) = requests.remove(&response.id) {
-                  sender.send(response).unwrap();
+            res = socket_stream.next() => {
+              if let Some(Ok(Message::Text(json_message))) = res {
+                if let Ok(response) = serde_json::from_str::<SurrealResponseData>(&json_message) {
+                  if let Some(sender) = requests.remove(&response.id) {
+                    sender.send(response).unwrap();
+                  }
                 }
               }
-            }
-          },
+            },
         }
       }
     });
@@ -69,10 +91,11 @@ impl SurrealClient {
       .send_message(
         "signin",
         json!([{
-          "user": String::from(user),
-          "pass": String::from(pass)
+            "user": String::from(user),
+            "pass": String::from(pass)
         }]),
       )
+      .await?
       .await?;
 
     Ok(())
@@ -87,6 +110,7 @@ impl SurrealClient {
         "use",
         json!([String::from(namespace), String::from(database)]),
       )
+      .await?
       .await?;
 
     Ok(())
@@ -114,14 +138,12 @@ impl SurrealClient {
       .send(Message::Text(serde_json::to_string(&message).unwrap()))
       .await?;
 
-    let response = rx.await?;
-
-    Ok(response)
+    Ok(SurrealResponse { receiver: rx })
   }
 
   /// Send a query using the current socket connection then return the raw [SurrealResponse]
   pub async fn send_query(&mut self, query: String, params: Value) -> RpcResult<SurrealResponse> {
-    self.send_message("query", json!([query, params])).await
+    Ok(self.send_message("query", json!([query, params])).await?)
   }
 
   /// Send a query using the current socket connection then return the **first** [Value]
@@ -129,7 +151,7 @@ impl SurrealClient {
   ///
   /// Use [`Self::find_one()`] instead to get a typed return value.
   async fn find_one_value(&mut self, query: String, params: Value) -> RpcResult<Option<Value>> {
-    let response = self.send_query(query, params).await?;
+    let response = self.send_query(query, params).await?.await?;
 
     match response.get_results() {
       Some(array) => match array.first() {
@@ -162,7 +184,7 @@ impl SurrealClient {
   ///
   /// Use [`Self::find_many()`] instead to get a typed return value.
   async fn find_many_values(&mut self, query: String, params: Value) -> RpcResult<Vec<Value>> {
-    let response = self.send_query(query, params).await?;
+    let response = self.send_query(query, params).await?.await?;
 
     Ok(
       response

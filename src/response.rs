@@ -4,12 +4,12 @@ use serde_json::Value;
 
 /// A raw, unparsed, response from the SurrealDB instance.
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SurrealResponse {
+pub struct SurrealResponseData {
   pub id: String,
   pub result: Value,
 }
 
-impl SurrealResponse {
+impl SurrealResponseData {
   /// Find the **first** result with the given alias from the response. If [None] is passed
   /// as the alias then it defaults to `result`, which is the default alias for
   /// surrealdb results.
