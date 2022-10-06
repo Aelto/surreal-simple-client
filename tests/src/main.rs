@@ -26,6 +26,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   client
     .send_query("delete User".to_owned(), Value::Null)
     .await
+    .unwrap()
+    .await
     .unwrap();
 
   create_user(&mut client, "John".to_owned()).await;
@@ -61,6 +63,8 @@ async fn create_user(client: &mut SurrealClient, username: String) {
       "create User set username = $username".to_owned(),
       json!({ "username": username }),
     )
+    .await
+    .unwrap()
     .await
     .unwrap();
 }
