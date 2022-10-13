@@ -1,3 +1,4 @@
+use nanoid::nanoid;
 use surreal_simple_client::rpc::RpcResult;
 use surreal_simple_client::SurrealClient;
 
@@ -10,7 +11,7 @@ pub async fn open_connection() -> RpcResult<SurrealClient> {
 
   client.signin("root", "root").await.expect("Signin error");
   client
-    .use_namespace("tests", "tests")
+    .use_namespace(nanoid!(), nanoid!())
     .await
     .expect("Namespace error");
 

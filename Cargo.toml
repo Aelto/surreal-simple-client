@@ -33,3 +33,4 @@ actix = ["dep:actix-web"]
 [dev-dependencies]
 surreal-simple-querybuilder = "0.3.1"
 serde = { version = "1.0.144", features = ["derive"] }
+nanoid = "0.4.0" # used while connecting to the DB, to generate a random namespace
