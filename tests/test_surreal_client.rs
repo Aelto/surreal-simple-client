@@ -6,6 +6,7 @@ mod common;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use common::models::File;
 use common::models::User;
 use common::open_connection;
 use surreal_simple_client::rpc::RpcResult;
@@ -49,9 +50,13 @@ async fn it_supports_send() -> RpcResult<()> {
 
 async fn it_creates_data(client: &mut SurrealClient) -> RpcResult<()> {
   let new_user = User::new(USER0_NAME.to_owned());
-  let creation_result = new_user.create(client).await;
+  if let Some(created_user) = new_user.create(client).await? {
+    let new_file = File::new("LoremIpsum".to_owned());
 
-  assert!(creation_result.is_ok());
+    if let Some(created_file) = new_file.create(client).await? {
+      User::relate_with_file(client, &created_user.id.unwrap(), &created_file.id.unwrap()).await?;
+    }
+  }
 
   Ok(())
 }
