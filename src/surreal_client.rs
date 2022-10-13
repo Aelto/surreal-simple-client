@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use futures::stream::SplitSink;
 use futures::Future;
-use futures::FutureExt;
 use futures::SinkExt;
 use futures::StreamExt;
 use serde::de::DeserializeOwned;
@@ -66,11 +65,21 @@ impl SurrealClient {
 
             res = socket_stream.next() => {
               if let Some(Ok(Message::Text(json_message))) = res {
-                if let Ok(response) = serde_json::from_str::<SurrealResponseData>(&json_message) {
-                  if let Some(sender) = requests.remove(&response.id) {
-                    sender.send(response).unwrap();
-                  }
-                }
+                match serde_json::from_str::<SurrealResponseData>(&json_message) {
+                  Ok(response) => if let Some(sender) = requests.remove(&response.id) {
+                    if let Err(_) = sender.send(response) {
+                      // do nothing at the moment, an error from a .send() call
+                      // means the receiver is no longer listening. Which is a
+                      // possible & valid state.
+                    }
+                  },
+                  Err(_) => {
+                    // TODO: this error should be handled, probably by sending
+                    // it through the `sender`. But that would require the
+                    // `SurrealResponseSender` to accept an enum as it only accepts
+                    // valid data at the moment.
+                  },
+                };
               }
             },
         }
@@ -153,13 +162,11 @@ impl SurrealClient {
   async fn find_one_value(&mut self, query: String, params: Value) -> RpcResult<Option<Value>> {
     let response = self.send_query(query, params).await?.await?;
 
-    match response.get_results() {
-      Some(array) => match array.first() {
-        Some(first_object) => Ok(Some(first_object.to_owned())),
-        None => Ok(None),
-      },
-      None => Ok(None),
-    }
+    Ok(
+      response
+        .get_nth_query_result(0)
+        .and_then(|query_results| query_results.results().first().cloned()),
+    )
   }
 
   /// Send a query using the current socket connection then return the **first** [T]
@@ -168,6 +175,25 @@ impl SurrealClient {
     &mut self, query: String, params: Value,
   ) -> RpcResult<Option<T>> {
     let value = self.find_one_value(query, params).await?;
+
+    match value {
+      None => Ok(None),
+      Some(inner) => {
+        let deser_result = serde_json::from_value::<T>(inner)?;
+
+        Ok(Some(deser_result))
+      }
+    }
+  }
+
+  pub async fn find_one_key<T: DeserializeOwned>(
+    &mut self, key: &str, query: String, params: Value,
+  ) -> RpcResult<Option<T>> {
+    let response = self.send_query(query, params).await?.await?;
+
+    let value = response
+      .get_nth_query_result(0)
+      .and_then(|query_results| query_results.results_key(key).first().cloned().cloned());
 
     match value {
       None => Ok(None),
@@ -188,8 +214,8 @@ impl SurrealClient {
 
     Ok(
       response
-        .get_results()
-        .and_then(|array| Some(array.to_owned()))
+        .get_nth_query_result(0)
+        .and_then(|query_results| Some(query_results.results().clone()))
         .unwrap_or_default(),
     )
   }
@@ -201,6 +227,23 @@ impl SurrealClient {
   ) -> RpcResult<Vec<T>> {
     let values = self.find_many_values(query, params).await?;
     let deser_result: Vec<T> = serde_json::from_value(Value::Array(values))?;
+
+    Ok(deser_result)
+  }
+
+  ///
+  pub async fn find_many_key<T: DeserializeOwned>(
+    &mut self, key: &str, query: String, params: Value,
+  ) -> RpcResult<Vec<T>> {
+    let response = self.send_query(query, params).await?.await?;
+
+    let values = response
+      .get_nth_query_result(0)
+      .and_then(|query_results| Some(query_results.results_key(key)))
+      .unwrap_or_default();
+
+    let deser_result: Vec<T> =
+      serde_json::from_value(Value::Array(values.into_iter().cloned().collect()))?;
 
     Ok(deser_result)
   }

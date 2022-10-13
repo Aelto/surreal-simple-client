@@ -31,5 +31,5 @@ actix-web = { version = "4", optional = true }
 actix = ["dep:actix-web"]
 
 [dev-dependencies]
-surreal-simple-querybuilder = "0.2.1"
+surreal-simple-querybuilder = "0.3.0"
 serde = { version = "1.0.144", features = ["derive"] }
