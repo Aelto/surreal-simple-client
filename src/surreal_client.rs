@@ -186,6 +186,8 @@ impl SurrealClient {
     }
   }
 
+  /// Fetch the value for the given `key` out of the first row that is returned by
+  /// the supplied `query`. If the key is missing then [None] is returned.
   pub async fn find_one_key<T: DeserializeOwned>(
     &mut self, key: &str, query: String, params: Value,
   ) -> RpcResult<Option<T>> {
@@ -231,7 +233,9 @@ impl SurrealClient {
     Ok(deser_result)
   }
 
-  ///
+  /// Get the value for every row that were returned by the supplied `query` and
+  /// where `key` exists. If the `key` is missing from a row then the row will
+  /// be filtered out of the returned [Vec].
   pub async fn find_many_key<T: DeserializeOwned>(
     &mut self, key: &str, query: String, params: Value,
   ) -> RpcResult<Vec<T>> {

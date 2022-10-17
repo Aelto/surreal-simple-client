@@ -9,6 +9,7 @@ use std::sync::Mutex;
 use common::models::File;
 use common::models::User;
 use common::open_connection;
+use serde_json::json;
 use surreal_simple_client::rpc::RpcResult;
 use surreal_simple_client::SurrealClient;
 
@@ -78,6 +79,91 @@ async fn it_fetches_data() -> RpcResult<()> {
   let expected_result = Some(USER0_NAME.to_owned());
 
   assert_eq!(expected_result, some_user_name);
+
+  Ok(())
+}
+
+/// This test confirms the `Client::find_one_key` function can be used to retrieve
+/// a vec of results `Vec<T>` that are stored under a specific key.
+///
+/// In the test we used a volutarily complex example using an edge that we
+/// renamed `written_files`.
+///
+/// The find_one_key is expected to return the results from the first row only,
+/// even if multiple rows are returned.
+#[tokio::test]
+async fn it_retrieves_one_key() -> RpcResult<()> {
+  let mut client = open_connection().await?;
+
+  client
+    .send_query(
+      "
+      create account:one set name = 'account one';
+      create account:two set name = 'account two';
+      create file:one set name = 'file one';
+      relate account:one->write->file:one;
+    "
+      .to_owned(),
+      json!({}),
+    )
+    .await?
+    .await?;
+
+  let files: Option<Vec<File>> = client
+    .find_one_key(
+      "written_files",
+      "select ->write->file as written_files, * from account:one fetch written_files".to_owned(),
+      json!({}),
+    )
+    .await?;
+
+  let files_length = files.and_then(|v| Some(v.len())).unwrap_or(0);
+
+  assert_eq!(1, files_length);
+
+  Ok(())
+}
+
+/// This test confirms the `Client::find_many_key` function can be used to retrieve
+/// a vec of results `Vec<T>` that are stored under a specific key for many rows
+///
+/// In the test we used a volutarily complex example using an edge that we
+/// renamed `written_files`.
+#[tokio::test]
+async fn it_retrieves_many_key() -> RpcResult<()> {
+  let mut client = open_connection().await?;
+
+  client
+    .send_query(
+      "
+      create account:one set name = 'account one';
+      create account:two set name = 'account two';
+      create file:one set name = 'file one';
+      relate account:one->write->file:one;
+      relate account:one->read->file:two;
+    "
+      .to_owned(),
+      json!({}),
+    )
+    .await?
+    .await?;
+
+  let files: Vec<Vec<File>> = client
+    .find_many_key(
+      "written_files",
+      "select ->write->file as written_files from account:one fetch written_files".to_owned(),
+      json!({}),
+    )
+    .await?;
+
+  let files_length = files.len();
+
+  // since the `written_files` will be missing from one of the results, we expect
+  // to only get one row.
+  assert_eq!(1, files_length);
+
+  // but this row should contain 1 result
+  assert_eq!(1, files[0].len());
 
   Ok(())
 }
