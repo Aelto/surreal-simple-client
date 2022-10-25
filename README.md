@@ -36,3 +36,17 @@ The `SurrealClient` type offers utility functions to:
  - send a query and get the many elements of type `<T>` in the form of a `Vec<T>` from the response: `client.find_many()`
 
 You can find a complete example in the [`./tests`](/tests) directory.
+
+# Running tests
+The tests require a SurrealDB instance to run locally, a [`justfile`](https://github.com/casey/just) was created 
+to allow anyone to boot a in-memory instance using the `just db` command.
+
+If `just` is not installed then the following command will do the trick:
+```
+surreal start --log debug --user root --pass root memory
+```
+
+then use the following command to run the tests:
+```
+cargo test
+```
