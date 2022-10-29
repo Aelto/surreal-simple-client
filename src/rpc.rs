@@ -2,12 +2,13 @@ use std::fmt::Display;
 
 use tokio::sync::oneshot;
 use tokio_tungstenite::tungstenite;
+use thiserror::Error;
 
 use crate::errors::SurrealError;
 
 pub type RpcResult<T> = Result<T, RpcChannelError>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RpcChannelError {
   SurrealBodyParsingError { inner: serde_json::Error },
   SocketError { inner: tungstenite::Error },
